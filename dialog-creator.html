@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kreator Dialogów do Gry (Squirrel)</title>
+    <style>
+        :root {
+            --bg-color: #2d3436;
+            --main-color: #353b48;
+            --secondary-color: #2c3e50;
+            --font-color: #dfe6e9;
+            --border-color: #7f8c8d;
+            --accent-color: #0984e3;
+            --danger-color: #d63031;
+            --success-color: #00b894;
+            --warning-color: #f1c40f;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--font-color);
+            margin: 0;
+            padding: 20px;
+            font-size: 14px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        .main-panel {
+            flex: 2;
+            position: -webkit-sticky;
+            position: sticky;
+            top: 20px;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .editor-panel {
+            flex: 3;
+            background-color: var(--main-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            height: fit-content;
+        }
+        .controls {
+            background-color: var(--main-color);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        #node-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .export-controls {
+            background-color: var(--main-color);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+        }
+        #node-list li {
+            background-color: var(--secondary-color);
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            border-left: 5px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+        #node-list li:hover {
+            border-left: 5px solid var(--accent-color);
+            background-color: #3b4b5c;
+        }
+        #node-list li.active {
+            border-left: 5px solid var(--success-color);
+            font-weight: bold;
+        }
+        #node-list li.dirty::after {
+            content: ' *';
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+        h2, h3 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+        }
+        button, input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: var(--secondary-color);
+            color: var(--font-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-family: var(--font-family);
+        }
+        input:read-only {
+            background-color: #4a4a4a;
+            cursor: not-allowed;
+        }
+        button:disabled {
+            background-color: #5a5a5a;
+            border-color: #5a5a5a;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        input.invalid, textarea.invalid {
+            border-color: var(--danger-color) !important;
+        }
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+        }
+        button.primary { background-color: var(--accent-color); border-color: var(--accent-color); }
+        button.primary:hover:not(:disabled) { background-color: #1a9cff; }
+        button.danger { background-color: var(--danger-color); border-color: var(--danger-color); }
+        button.danger:hover:not(:disabled) { background-color: #e17055; }
+        button.success { background-color: var(--success-color); border-color: var(--success-color); }
+        button.success:hover:not(:disabled) { background-color: #55efc4; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .sub-section {
+            background-color: #2d3436;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            border: 1px solid #4a5568;
+        }
+        .sub-item {
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .sub-item:last-child { border-bottom: none; }
+        .hidden { display: none; }
+        .inline-fields { display: flex; gap: 10px; }
+        .inline-fields > * { flex: 1; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="main-panel">
+        <div class="controls">
+            <h2>📜 Węzły Dialogowe</h2>
+            <button class="primary" onclick="app.createNewNode()">+ Dodaj nowy węzeł</button>
+            <ul id="node-list"></ul>
+        </div>
+        <div class="export-controls">
+            <h3>⚙️ Ustawienia i Eksport</h3>
+            <div class="form-group">
+                <label for="npcInstance">Instancja NPC</label>
+                <input type="text" id="npcInstance" placeholder="np. Celina">
+            </div>
+             <div class="form-group">
+                <label for="menuName">Nazwa rejestracji menu</label>
+                <input type="text" id="menuName" placeholder="np. talk_with_celina_adv">
+            </div>
+            <button class="success" onclick="app.generateSquirrel()">💾 Generuj skrypt Squirrel (.nut)</button>
+            <button onclick="app.exportProject()">📤 Eksportuj projekt (.json)</button>
+            <input type="file" id="import-file" class="hidden" accept=".json" onchange="app.importProject(event)">
+            <button onclick="document.getElementById('import-file').click()">📥 Importuj projekt (.json)</button>
+             <button class="danger" onclick="app.clearProject()">🗑️ Wyczyść projekt</button>
+        </div>
+    </div>
+
+    <div class="editor-panel hidden" id="editor">
+        <h2>✏️ Edytor Węzła: <span id="editor-node-id-display"></span></h2>
+        <input type="hidden" id="editor-node-id">
+
+        <div class="form-group">
+            <label for="node-id">ID Węzła (unikalne, bez spacji, np. 'intro', 'quest_reward')</label>
+            <input type="text" id="node-id" oninput="app.updateNodeId(this.value)">
+        </div>
+
+        <div class="form-group">
+            <label for="node-label">Etykieta (tekst wyboru widoczny dla gracza)</label>
+            <textarea id="node-label" rows="2" data-required="true"></textarea>
+        </div>
+
+        <div class="form-group">
+            <input type="checkbox" id="node-repeat" style="width: auto; margin-right: 10px;">
+            <label for="node-repeat" style="display: inline;">Dialog wielokrotnego użytku (repeat = true)</label>
+        </div>
+
+        <div class="sub-section">
+            <h3>💬 Linie dialogowe NPC</h3>
+            <div id="dialogue-lines"></div>
+            <button onclick="app.addDialogueLine()">+ Dodaj linię</button>
+        </div>
+
+        <div class="sub-section">
+            <h3>👉 Wybory gracza (Choices)</h3>
+            <p style="font-size: 12px; color: #b2bec3;">Łączą ten węzeł z innymi. Wybierz ID węzła, do którego ma prowadzić opcja.</p>
+            <div id="choices"></div>
+            <button onclick="app.addChoice()">+ Dodaj wybór</button>
+        </div>
+
+        <div class="sub-section">
+            <h3>🔒 Warunki wyświetlenia opcji</h3>
+            <div id="conditions"></div>
+            <button onclick="app.addCondition()">+ Dodaj warunek</button>
+        </div>
+
+        <div class="sub-section">
+            <h3>⚡ Akcje do wykonania (Callback)</h3>
+            <div id="actions"></div>
+            <button onclick="app.addAction()">+ Dodaj akcję</button>
+        </div>
+
+        <hr style="border-color: var(--border-color); margin: 20px 0;">
+
+        <button class="primary" onclick="app.saveNode()">Zapisz zmiany</button>
+        <button class="danger" id="delete-node-button" onclick="app.deleteNode()">Usuń ten węzeł</button>
+    </div>
+</div>
+
+<script>
+class DialogueApp {
+    constructor() {
+        this.conditionTypes = {
+            hasItem: { label: 'Gracz ma przedmiot', fields: [{name: 'value1', placeholder: 'Instancja przedmiotu', required: true}, {name: 'value2', placeholder: 'Ilość', required: true}] },
+            hasGold: { label: 'Gracz ma złoto', fields: [{name: 'value1', placeholder: 'Wymagana ilość złota', required: true}] },
+            isDialogFinished: { label: 'Gracz ukończył dialog', fields: [{name: 'value1', placeholder: 'ID Dialogu', required: true}] },
+            questCompleted: { label: 'Gracz ukończył zadanie', fields: [{name: 'value1', placeholder: 'ID Zadania', required: true}] },
+            isQuestActive: { label: 'Gracz ma aktywne zadanie', fields: [{name: 'value1', placeholder: 'ID Zadania', required: true}] },
+            questReady: { label: 'Gracz jest gotów oddać zadanie', fields: [{name: 'value1', placeholder: 'ID Zadania', required: true}] },
+            canTakeQuest: { label: 'Gracz może przyjąć zadanie', fields: [{name: 'value1', placeholder: 'ID Zadania', required: true}] },
+            checkTrainingRequiremenets: { label: 'Wymagania treningu', fields: [{name: 'value1', placeholder: 'Nazwa', required: true}, {name: 'value2', placeholder: 'Mnożnik', required: true}, {name: 'value3', placeholder: 'Limit', required: true}] },
+            gameTimeBetween: { label: 'Czas w grze pomiędzy', fields: [{name: 'value1', placeholder: 'Start (godzina)', required: true}, {name: 'value2', placeholder: 'Koniec (godzina)', required: true}] },
+            realTimeBetween: { label: 'Czas rzeczywisty pomiędzy', fields: [{name: 'value1', placeholder: 'Start (godzina)', required: true}, {name: 'value2', placeholder: 'Koniec (godzina)', required: true}] }
+        };
+        this.actionTypes = {
+            giveGold: { label: 'Daj złoto', fields: [{name: 'value1', placeholder: 'Ilość', required: true}] },
+            removeGold: { label: 'Zabierz złoto', fields: [{name: 'value1', placeholder: 'Ilość', required: true}] },
+            giveItem: { label: 'Daj przedmiot', fields: [{name: 'value1', placeholder: 'Instancja przedmiotu', required: true}, {name: 'value2', placeholder: 'Ilość', required: true}] },
+            addSkill: { label: 'Dodaj umiejętność', fields: [{name: 'value1', placeholder: 'Nazwa umiejętności', required: true}, {name: 'value2', placeholder: 'Wartość', required: true}] },
+            addJournalEntry: { label: 'Dodaj wpis do dziennika', fields: [{name: 'value1', placeholder: 'Tytuł wpisu', required: true}, {name: 'value2', placeholder: 'Treść wpisu', required: true}] },
+            print: { label: 'Wypisz wiadomość (print)', fields: [{name: 'value1', placeholder: 'Wiadomość', required: true}] }
+        };
+        this.data = {};
+        this.activeNodeId = null;
+        this.isEditorDirty = false;
+
+        this.loadFromLocalStorage();
+        this.renderNodeList();
+        if (this.activeNodeId) {
+            this.openEditor(this.activeNodeId);
+        }
+        this.attachDirtyListeners();
+    }
+
+    // ZMIANA TUTAJ: Funkcja do tworzenia czystego projektu z węzłem 'intro'
+    initializeEmptyProject() {
+        this.data = {
+            nodes: {
+                'intro': {
+                    label: 'Rozpocznij rozmowę',
+                    lines: [{ owner: 'NPC', text: 'Witaj.' }],
+                    choices: [], conditions: [], actions: [], repeat: false
+                }
+            },
+            config: { npcInstance: '', menuName: '' }
+        };
+        this.activeNodeId = 'intro';
+    }
+
+    setDirty(isDirty) {
+        this.isEditorDirty = isDirty;
+        const activeNodeEl = document.querySelector(`#node-list li[data-id="${this.activeNodeId}"]`);
+        if (activeNodeEl) { activeNodeEl.classList.toggle('dirty', isDirty); }
+    }
+
+    attachDirtyListeners() {
+        document.getElementById('editor').addEventListener('input', () => this.setDirty(true));
+    }
+
+    promptToSave() {
+        if (!this.isEditorDirty) return true;
+        const confirmation = confirm("Masz niezapisane zmiany. Czy chcesz je najpierw zapisać?");
+        if (confirmation) { return this.saveNode(); }
+        return false;
+    }
+
+    loadFromLocalStorage() {
+        const savedData = localStorage.getItem('dialogueCreatorData');
+        if (savedData) {
+            this.data = JSON.parse(savedData);
+            if (!this.data.nodes.intro) { // Walidacja na wypadek starych projektów bez intro
+                alert("Wczytany projekt nie ma startowego węzła 'intro'. Zostanie on utworzony.");
+                this.initializeEmptyProject();
+                this.saveToLocalStorage();
+            }
+        } else {
+            this.initializeEmptyProject();
+        }
+        document.getElementById('npcInstance').value = this.data.config.npcInstance;
+        document.getElementById('menuName').value = this.data.config.menuName;
+    }
+
+    saveToLocalStorage() {
+        this.data.config.npcInstance = document.getElementById('npcInstance').value;
+        this.data.config.menuName = document.getElementById('menuName').value;
+        localStorage.setItem('dialogueCreatorData', JSON.stringify(this.data));
+    }
+
+    renderNodeList() {
+        const list = document.getElementById('node-list');
+        list.innerHTML = '';
+        const nodeIds = Object.keys(this.data.nodes);
+        if (nodeIds.length === 0) {
+            list.innerHTML = '<li>Błąd: Brak wymaganego węzła "intro".</li>';
+            return;
+        }
+        nodeIds.forEach(id => {
+            const node = this.data.nodes[id];
+            const li = document.createElement('li');
+            li.textContent = `${id} (${node.label.substring(0, 30)}...)`;
+            li.dataset.id = id;
+            if (id === this.activeNodeId) {
+                li.classList.add('active');
+                li.classList.toggle('dirty', this.isEditorDirty);
+            }
+            li.onclick = () => this.openEditor(id);
+            list.appendChild(li);
+        });
+    }
+
+    openEditor(nodeId) {
+        if (this.activeNodeId !== nodeId && this.isEditorDirty) {
+             if (!this.promptToSave()) return;
+        }
+
+        this.setDirty(false);
+        this.activeNodeId = nodeId;
+        this.renderNodeList();
+
+        const editor = document.getElementById('editor');
+        editor.classList.remove('hidden');
+
+        const node = this.data.nodes[nodeId];
+        if (!node) return;
+
+        // ZMIANA TUTAJ: Blokowanie usuwania i zmiany nazwy dla 'intro'
+        const isIntroNode = nodeId === 'intro';
+        document.getElementById('node-id').readOnly = isIntroNode;
+        document.getElementById('delete-node-button').disabled = isIntroNode;
+
+        document.querySelectorAll('#editor .invalid').forEach(el => el.classList.remove('invalid'));
+        document.getElementById('editor-node-id').value = nodeId;
+        document.getElementById('editor-node-id-display').textContent = nodeId;
+        document.getElementById('node-id').value = nodeId;
+        document.getElementById('node-label').value = node.label;
+        document.getElementById('node-repeat').checked = node.repeat || false;
+
+        this.renderSubItems('dialogue-lines', node.lines, this.getDialogueLineHTML);
+        this.renderSubItems('choices', node.choices, this.getChoiceHTML);
+        this.renderSubItems('conditions', node.conditions, this.getConditionHTML);
+        this.renderSubItems('actions', node.actions, this.getActionHTML);
+    }
+
+    renderSubItems(containerId, items, htmlGenerator) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        if (items && items.length > 0) {
+            items.forEach((item, index) => {
+                container.innerHTML += htmlGenerator.call(this, item, index);
+            });
+        }
+    }
+
+    createNewNode() {
+        if (this.activeNodeId && this.isEditorDirty) {
+             if (!this.promptToSave()) return;
+        }
+        let newId = `wezel_${Object.keys(this.data.nodes).length + 1}`;
+        while(this.data.nodes[newId]) { newId += '_'; }
+        this.data.nodes[newId] = {
+            label: 'Nowa opcja dialogowa',
+            lines: [{ owner: this.data.config.npcInstance || 'NPC', text: 'Witaj.' }],
+            choices: [], conditions: [], actions: [], repeat: false
+        };
+        this.saveToLocalStorage();
+        this.openEditor(newId);
+    }
+
+    updateNodeId(newId) {
+        this.setDirty(true);
+        document.getElementById('editor-node-id-display').textContent = newId;
+    }
+
+    saveNode() {
+        document.querySelectorAll('#editor .invalid').forEach(el => el.classList.remove('invalid'));
+        let isValid = true;
+
+        const oldId = document.getElementById('editor-node-id').value;
+        const newIdInput = document.getElementById('node-id');
+        const newId = newIdInput.value.trim();
+
+        if (oldId === 'intro' && newId !== 'intro') {
+            alert('Nie można zmienić ID startowego węzła "intro"!');
+            newIdInput.value = 'intro';
+            return false;
+        }
+
+        if (!newId) {
+            isValid = false;
+            newIdInput.classList.add('invalid');
+        } else if (oldId !== newId && this.data.nodes[newId]) {
+            alert(`Węzeł o ID "${newId}" już istnieje!`);
+            isValid = false;
+            newIdInput.classList.add('invalid');
+        }
+
+        document.querySelectorAll('#editor [data-required="true"]').forEach(input => {
+            if (!input.value.trim()) {
+                isValid = false;
+                input.classList.add('invalid');
+            }
+        });
+
+        if (!isValid) {
+            alert('Proszę wypełnić wszystkie wymagane pola (zaznaczone na czerwono).');
+            return false;
+        }
+
+        this.updateDataModelFromUI(true);
+        this.setDirty(false);
+        this.renderNodeList();
+        return true;
+    }
+
+    updateDataModelFromUI(saveToLocal = true) {
+        const oldId = document.getElementById('editor-node-id').value;
+        if (!oldId) return;
+
+        const newId = document.getElementById('node-id').value.trim() || oldId;
+        const nodeData = {
+            label: document.getElementById('node-label').value,
+            repeat: document.getElementById('node-repeat').checked,
+            lines: this.collectSubItems('dialogue-lines', ['owner', 'text']),
+            choices: this.collectSubItems('choices', ['next']),
+            conditions: this.collectSubItems('conditions', ['type', 'value1', 'value2', 'value3']),
+            actions: this.collectSubItems('actions', ['type', 'value1', 'value2']),
+        };
+
+        if (oldId && oldId !== newId) delete this.data.nodes[oldId];
+        this.data.nodes[newId] = nodeData;
+
+        Object.values(this.data.nodes).forEach(node => {
+            if (node.choices) {
+                node.choices.forEach(choice => {
+                    if (choice.next === oldId) choice.next = newId;
+                });
+            }
+        });
+
+        this.activeNodeId = newId;
+        if (saveToLocal) this.saveToLocalStorage();
+    }
+
+    refreshEditorView() {
+        this.updateDataModelFromUI(false);
+        this.openEditor(this.activeNodeId);
+    }
+
+    deleteNode() {
+        // ZMIANA TUTAJ: Dodatkowe zabezpieczenie przed usunięciem 'intro'
+        if (this.activeNodeId === 'intro') {
+            alert('Nie można usunąć startowego węzła "intro"!');
+            return;
+        }
+        if (!confirm(`Czy na pewno chcesz usunąć węzeł "${this.activeNodeId}"?`)) return;
+        const idToDelete = this.activeNodeId;
+        delete this.data.nodes[idToDelete];
+        Object.values(this.data.nodes).forEach(node => {
+            if (node.choices) node.choices = node.choices.filter(c => c.next !== idToDelete);
+        });
+        this.activeNodeId = 'intro'; // Wróć do intro po usunięciu
+        this.setDirty(false);
+        this.saveToLocalStorage();
+        this.openEditor('intro');
+    }
+
+    collectSubItems(containerId, fields) {
+        const items = [];
+        document.getElementById(containerId).querySelectorAll('.sub-item').forEach(itemEl => {
+            const itemData = {};
+            fields.forEach(field => {
+                const input = itemEl.querySelector(`[data-field="${field}"]`);
+                if(input) itemData[field] = input.value;
+            });
+            items.push(itemData);
+        });
+        return items;
+    }
+
+    addDialogueLine() { this.addSubItem('lines', { owner: this.data.config.npcInstance || 'NPC', text: '' }); }
+    addChoice() { this.addSubItem('choices', { next: Object.keys(this.data.nodes)[0] || '' }); }
+    addCondition() { this.addSubItem('conditions', { type: 'hasItem' }); }
+    addAction() { this.addSubItem('actions', { type: 'giveGold' }); }
+
+    addSubItem(type, newItem) {
+        this.setDirty(true);
+        this.updateDataModelFromUI(false);
+        const node = this.data.nodes[this.activeNodeId];
+        if (!node[type]) node[type] = [];
+        node[type].push(newItem);
+        this.openEditor(this.activeNodeId);
+    }
+
+    removeSubItem(type, index) {
+        this.setDirty(true);
+        this.updateDataModelFromUI(false);
+        const node = this.data.nodes[this.activeNodeId];
+        if (node && node[type]) {
+            node[type].splice(index, 1);
+        }
+        this.openEditor(this.activeNodeId);
+    }
+
+    getDialogueLineHTML(item, index) {
+        return `<div class="sub-item" data-index="${index}"><div class="inline-fields"><input type="text" data-field="owner" value="${item.owner || ''}" placeholder="Właściciel (np. NPC)" data-required="true"><input type="text" data-field="text" value="${item.text || ''}" placeholder="Treść linii" data-required="true"></div><button class="danger" style="width:auto; padding: 5px 10px; margin-top:5px;" onclick="app.removeSubItem('lines', ${index})">Usuń</button></div>`;
+    }
+
+    getChoiceHTML(item, index) {
+        const options = Object.keys(this.data.nodes).map(id => `<option value="${id}" ${id === item.next ? 'selected' : ''}>${id}</option>`).join('');
+        return `<div class="sub-item" data-index="${index}"><select data-field="next">${options}</select><button class="danger" style="width:auto; padding: 5px 10px; margin-top:5px;" onclick="app.removeSubItem('choices', ${index})">Usuń</button></div>`;
+    }
+
+    getConditionHTML(item, index) {
+        const typeInfo = this.conditionTypes[item.type];
+        const options = Object.keys(this.conditionTypes).map(t => `<option value="${t}" ${t === item.type ? 'selected' : ''}>${this.conditionTypes[t].label}</option>`).join('');
+        const fieldsHTML = typeInfo.fields.map(field => `<input type="text" data-field="${field.name}" value="${item[field.name] || ''}" placeholder="${field.placeholder}" ${field.required ? 'data-required="true"' : ''}>`).join('');
+        return `<div class="sub-item" data-index="${index}"><select data-field="type" onchange="app.refreshEditorView()">${options}</select><div class="inline-fields">${fieldsHTML}</div><button class="danger" style="width:auto; padding: 5px 10px; margin-top:5px;" onclick="app.removeSubItem('conditions', ${index})">Usuń</button></div>`;
+    }
+
+    getActionHTML(item, index) {
+        const typeInfo = this.actionTypes[item.type];
+        const options = Object.keys(this.actionTypes).map(t => `<option value="${t}" ${t === item.type ? 'selected' : ''}>${this.actionTypes[t].label}</option>`).join('');
+        const fieldsHTML = typeInfo.fields.map(field => `<input type="text" data-field="${field.name}" value="${item[field.name] || ''}" placeholder="${field.placeholder}" ${field.required ? 'data-required="true"' : ''}>`).join('');
+        return `<div class="sub-item" data-index="${index}"><select data-field="type" onchange="app.refreshEditorView()">${options}</select><div class="inline-fields">${fieldsHTML}</div><button class="danger" style="width:auto; padding: 5px 10px; margin-top:5px;" onclick="app.removeSubItem('actions', ${index})">Usuń</button></div>`;
+    }
+
+    exportProject() {
+        if (!this.promptToSave()) return;
+        this.saveToLocalStorage();
+        const dataStr = JSON.stringify(this.data, null, 4);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${this.data.config.npcInstance || 'dialog'}_project.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    importProject(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                // ZMIANA TUTAJ: Walidacja importu - sprawdzanie czy istnieje węzeł 'intro'
+                if (importedData.nodes && importedData.nodes.intro && importedData.config) {
+                    this.data = importedData;
+                    this.activeNodeId = 'intro';
+                    this.setDirty(false);
+                    document.getElementById('editor').classList.add('hidden');
+                    this.saveToLocalStorage(); this.loadFromLocalStorage(); this.renderNodeList();
+                    this.openEditor('intro');
+                    alert('Projekt zaimportowany pomyślnie!');
+                } else { alert('Błąd importu: Projekt musi zawierać startowy węzeł o ID "intro".'); }
+            } catch (error) { alert('Błąd podczas wczytywania pliku: ' + error.message); }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    clearProject() {
+        if (!confirm('Czy na pewno chcesz wyczyścić projekt? Zostanie utworzony nowy, pusty projekt z węzłem "intro".')) return;
+        this.initializeEmptyProject();
+        this.setDirty(false);
+        this.saveToLocalStorage();
+        location.reload();
+    }
+
+    encodeWindows1250(str) {
+        const cp1250=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,8364,129,8218,131,8222,8230,8224,8225,136,8240,352,8249,338,141,381,143,144,8216,8217,8220,8221,8226,8211,8212,152,8482,353,8250,339,157,382,376,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255];
+        const unicodeToCp1250Map={'Ą':161,'ą':177,'Ć':198,'ć':230,'Ę':202,'ę':234,'Ł':163,'ł':179,'Ń':209,'ń':241,'Ó':211,'ó':243,'Ś':140,'ś':156,'Ź':143,'ź':159,'Ż':175,'ż':191,'Ž':142,'ž':158};
+        let bytes=[];for(let i=0;i<str.length;i++){const char=str[i];const code=char.charCodeAt(0);if(unicodeToCp1250Map[char]!==undefined){bytes.push(unicodeToCp1250Map[char]);}else if(code<128){bytes.push(code);}else{let found=false;for(let j=128;j<cp1250.length;j++){if(cp1250[j]===code){bytes.push(j);found=true;break;}}if(!found){bytes.push(63);}}}
+        return new Uint8Array(bytes);
+    }
+
+    generateSquirrel() {
+        if (!this.promptToSave()) return;
+        this.saveToLocalStorage();
+        let squirrelString = 'local advancedDialog = {\n\n';
+
+        for (const id in this.data.nodes) {
+            const node = this.data.nodes[id];
+            let properties = [];
+
+            properties.push(`label = "${node.label.replace(/"/g, '\\"')}"`);
+            if (node.repeat) { properties.push(`repeat = true`); }
+
+            if (node.lines && node.lines.length > 0) {
+                let linesStr = node.lines.map(line => `               { owner = "${line.owner.replace(/"/g, '\\"')}", text = "${line.text.replace(/"/g, '\\"')}" }`).join(',\n');
+                properties.push(`dialog = {\n           lines = [\n${linesStr}\n           ]\n        }`);
+            }
+            if (node.conditions && node.conditions.length > 0) {
+                let condsStr = node.conditions.map(cond => {
+                    const indent = '            ';
+                    switch(cond.type) {
+                        case 'hasGold':
+                            return `${indent}{ type = "hasGold", value = ${cond.value1} }`;
+                        case 'hasItem':
+                            return `${indent}{ type = "hasItem", value = { instance = "${cond.value1}", amount = ${cond.value2} } }`;
+                        case 'isDialogFinished':
+                            return `${indent}{ type = "isDialogFinished", value = "${cond.value1}" }`;
+                        case 'questCompleted':
+                            return `${indent}{ type = "questCompleted", value = "${cond.value1}" }`;
+                        case 'isQuestActive':
+                            return `${indent}{ type = "isQuestActive", value = "${cond.value1}" }`;
+                        case 'questReady':
+                            return `${indent}{ type = "questReady", value = "${cond.value1}" }`;
+                        case 'canTakeQuest':
+                            return `${indent}{ type = "canTakeQuest", value = "${cond.value1}" }`;
+                        case 'checkTrainingRequiremenets':
+                            return `${indent}{ type = "checkTrainingRequiremenets", value = { name = "${cond.value1}", multiplier = ${cond.value2}, limit = ${cond.value3} } }`;
+                        case 'gameTimeBetween':
+                            return `${indent}{ type = "gameTimeBetween", value = { start = ${cond.value1}, end = ${cond.value2} } }`;
+                        case 'realTimeBetween':
+                            return `${indent}{ type = "realTimeBetween", value = { start = ${cond.value1}, end = ${cond.value2} } }`;
+                        default:
+                            return null;
+                    }
+                }).filter(Boolean).join(',\n');
+                if(condsStr) properties.push(`conditions = [\n${condsStr}\n        ]`);
+            }
+            if (node.actions && node.actions.length > 0) {
+                 let actionsStr = node.actions.map(act => {
+                      switch(act.type) {
+                           case 'giveGold': return `            player.giveGold(${act.value1});`;
+                           case 'removeGold': return `            player.removeGold(${act.value1});`;
+                           case 'giveItem': return `            player.giveItem("${act.value1}", ${act.value2 || 1});`;
+                           case 'addSkill': return `            player.addSkill("${act.value1}", ${act.value2 || 1});`;
+                           case 'addJournalEntry': return `            player.addJournalEntry("${act.value1.replace(/"/g, '\\"')}", "${act.value2.replace(/"/g, '\\"')}");`;
+                           case 'print': return `            print("${act.value1.replace(/"/g, '\\"')}");`;
+                           default: return null;
+                      }
+                 }).filter(Boolean).join('\n');
+                 if(actionsStr) properties.push(`callback = function(player) {\n${actionsStr}\n        }`);
+            }
+            if (node.choices && node.choices.length > 0) {
+                let choicesStr = node.choices.map(choice => choice.next ? `            { next = "${choice.next}" }` : null).filter(Boolean).join(',\n');
+                if(choicesStr) properties.push(`choices = [\n${choicesStr}\n        ]`);
+            }
+
+            squirrelString += `    // ${'-'.repeat(52)}\n`;
+            squirrelString += `    // WĘZEŁ: ${id}\n`;
+            squirrelString += `    // ${'-'.repeat(52)}\n`;
+            squirrelString += `    ${id} = {\n`;
+            squirrelString += '        ' + properties.join(',\n        ') + '\n';
+            squirrelString += `    },\n\n`;
+        }
+        squirrelString += '};\n\n';
+        const menuName = this.data.config.menuName || 'default_menu';
+        const npcInstance = this.data.config.npcInstance || 'NPC';
+        squirrelString += `// ${'-'.repeat(44)}\n// Rejestracja dialogu\n// ${'-'.repeat(44)}\n`;
+        squirrelString += `DynamicMenuSystem.registerMenuOption("${menuName}", {\n    dialogStructure = advancedDialog\n});\n\n`;
+        squirrelString += `// ${'-'.repeat(44)}\n// Przypięcie menu do NPC-a\n// ${'-'.repeat(44)}\n`;
+        squirrelString += `DynamicMenuSystem.registerDynamicObjectMenu("ClientNPC", "${npcInstance}", ["${menuName}"]);`;
+
+        const encodedBytes = this.encodeWindows1250(squirrelString);
+        const blob = new Blob([encodedBytes], { type: 'text/plain;charset=windows-1250' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${npcInstance}_dialog.nut`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+}
+
+const app = new DialogueApp();
+
+</script>
+</body>
+</html>
