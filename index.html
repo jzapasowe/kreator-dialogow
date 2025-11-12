@@ -135,6 +135,19 @@
         button.success:hover:not(:disabled) { background-color: #55efc4; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group-inline {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+         .form-group-inline input[type="checkbox"] {
+            width: auto;
+            margin: 0 10px 0 0;
+        }
+         .form-group-inline label {
+            margin: 0;
+            font-weight: normal;
+        }
         .sub-section {
             background-color: #2d3436;
             padding: 15px;
@@ -151,6 +164,15 @@
         .hidden { display: none; }
         .inline-fields { display: flex; gap: 10px; }
         .inline-fields > * { flex: 1; }
+        .choice-item-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: #353b48;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -172,6 +194,21 @@
                 <label for="menuName">Nazwa rejestracji menu</label>
                 <input type="text" id="menuName" placeholder="np. talk_with_celina_adv">
             </div>
+            <div class="form-group">
+                <label for="objectType">Typ Obiektu</label>
+                <select id="objectType">
+                    <option value="ClientNPC">ClientNPC (Standardowy NPC)</option>
+                    <option value="TemplateNPC">TemplateNPC (Szablon NPC)</option>
+                    <option value="VOB">VOB (Obiekt VOB)</option>
+                </select>
+            </div>
+             <div class="form-group-inline">
+                <input type="checkbox" id="exclusiveChoices" checked>
+                <label for="exclusiveChoices">Wzajemnie wykluczające się opcje (exclusiveChoices)</label>
+            </div>
+
+            <hr style="border-color: var(--border-color); margin: 15px 0;">
+
             <button class="success" onclick="app.generateSquirrel()">💾 Generuj skrypt Squirrel (.nut)</button>
             <button onclick="app.exportProject()">📤 Eksportuj projekt (.json)</button>
             <input type="file" id="import-file" class="hidden" accept=".json" onchange="app.importProject(event)">
@@ -194,13 +231,32 @@
             <textarea id="node-label" rows="2" data-required="true"></textarea>
         </div>
 
-        <div class="form-group">
-            <input type="checkbox" id="node-repeat" style="width: auto; margin-right: 10px;">
-            <label for="node-repeat" style="display: inline;">Dialog wielokrotnego użytku (repeat = true)</label>
+        <div class="inline-fields">
+            <div class="form-group" style="flex: 1;">
+                <label for="node-type">Typ Węzła</label>
+                <select id="node-type">
+                    <option value="dialog">Dialog (Domyślny)</option>
+                    <option value="callback">Tylko Akcja (Callback)</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 2; display: flex; gap: 10px; align-items: center; padding-top: 15px;">
+                <div class="form-group-inline">
+                    <input type="checkbox" id="node-repeat">
+                    <label for="node-repeat">Wielokrotny (repeat)</label>
+                </div>
+                 <div class="form-group-inline">
+                    <input type="checkbox" id="node-autostart">
+                    <label for="node-autostart">Auto-start (autoStart)</label>
+                </div>
+            </div>
         </div>
 
         <div class="sub-section">
             <h3>💬 Linie dialogowe NPC</h3>
+            <div class="form-group-inline">
+                <input type="checkbox" id="node-dialog-exit">
+                <label for="node-dialog-exit">Zakończ po dialogu (shouldExit = true)</label>
+            </div>
             <div id="dialogue-lines"></div>
             <button onclick="app.addDialogueLine()">+ Dodaj linię</button>
         </div>
@@ -214,12 +270,26 @@
 
         <div class="sub-section">
             <h3>🔒 Warunki wyświetlenia opcji</h3>
+            <p style="font-size: 12px; color: #b2bec3;">Warunki sprawdzane, aby pokazać ten węzeł na liście opcji.</p>
             <div id="conditions"></div>
             <button onclick="app.addCondition()">+ Dodaj warunek</button>
         </div>
 
         <div class="sub-section">
-            <h3>⚡ Akcje do wykonania (Callback)</h3>
+            <h3>⚡ Akcje i Logika Zadań</h3>
+            <div class="inline-fields">
+                 <div class="form-group">
+                    <label for="node-startquest">Rozpoczyna zadanie (startQuest)</label>
+                    <input type="text" id="node-startquest" placeholder="ID Zadania (opcjonalne)">
+                </div>
+                 <div class="form-group">
+                    <label for="node-finishquest">Kończy zadanie (finishQuest)</label>
+                    <input type="text" id="node-finishquest" placeholder="ID Zadania (opcjonalne)">
+                </div>
+            </div>
+             <p style="font-size: 12px; color: #b2bec3;">Pola `startQuest` i `finishQuest` automatycznie dodadzą warunki `canTakeQuest`, `!isQuestActive` lub `questReady`.</p>
+             <hr style="border-color: var(--border-color); margin: 15px 0;">
+            <label style="font-weight: bold;">Dodatkowe akcje (Callback)</label>
             <div id="actions"></div>
             <button onclick="app.addAction()">+ Dodaj akcję</button>
         </div>
@@ -244,7 +314,11 @@ class DialogueApp {
             canTakeQuest: { label: 'Gracz może przyjąć zadanie', fields: [{name: 'value1', placeholder: 'ID Zadania', required: true}] },
             checkTrainingRequiremenets: { label: 'Wymagania treningu', fields: [{name: 'value1', placeholder: 'Nazwa', required: true}, {name: 'value2', placeholder: 'Mnożnik', required: true}, {name: 'value3', placeholder: 'Limit', required: true}] },
             gameTimeBetween: { label: 'Czas w grze pomiędzy', fields: [{name: 'value1', placeholder: 'Start (godzina)', required: true}, {name: 'value2', placeholder: 'Koniec (godzina)', required: true}] },
-            realTimeBetween: { label: 'Czas rzeczywisty pomiędzy', fields: [{name: 'value1', placeholder: 'Start (godzina)', required: true}, {name: 'value2', placeholder: 'Koniec (godzina)', required: true}] }
+            realTimeBetween: { label: 'Czas rzeczywisty pomiędzy', fields: [{name: 'value1', placeholder: 'Start (godzina)', required: true}, {name: 'value2', placeholder: 'Koniec (godzina)', required: true}] },
+            isMale: { label: 'Gracz jest mężczyzną', fields: [] },
+            isFemale: { label: 'Gracz jest kobietą', fields: [] },
+            checkQuestStatus: { label: 'Zadanie ma status', fields: [{name: 'value1', placeholder: 'ID Zadania', required: true}, {name: 'value2', placeholder: 'Indeks statusu', required: true}] },
+            hasEquippedQuestItem: { label: 'Gracz ma założony przedmiot questowy', fields: [{name: 'value1', placeholder: 'Instancja przedmiotu', required: true}] }
         };
         this.actionTypes = {
             giveGold: { label: 'Daj złoto', fields: [{name: 'value1', placeholder: 'Ilość', required: true}] },
@@ -266,17 +340,27 @@ class DialogueApp {
         this.attachDirtyListeners();
     }
 
-    // ZMIANA TUTAJ: Funkcja do tworzenia czystego projektu z węzłem 'intro'
     initializeEmptyProject() {
         this.data = {
             nodes: {
                 'intro': {
                     label: 'Rozpocznij rozmowę',
                     lines: [{ owner: 'NPC', text: 'Witaj.' }],
-                    choices: [], conditions: [], actions: [], repeat: false
+                    choices: [], conditions: [], actions: [],
+                    repeat: false,
+                    autoStart: false,
+                    shouldExit: false,
+                    type: 'dialog',
+                    startQuest: '',
+                    finishQuest: ''
                 }
             },
-            config: { npcInstance: '', menuName: '' }
+            config: {
+                npcInstance: '',
+                menuName: '',
+                objectType: 'ClientNPC',
+                exclusiveChoices: true
+            }
         };
         this.activeNodeId = 'intro';
     }
@@ -302,21 +386,31 @@ class DialogueApp {
         const savedData = localStorage.getItem('dialogueCreatorData');
         if (savedData) {
             this.data = JSON.parse(savedData);
-            if (!this.data.nodes.intro) { // Walidacja na wypadek starych projektów bez intro
+            if (!this.data.nodes.intro) {
                 alert("Wczytany projekt nie ma startowego węzła 'intro'. Zostanie on utworzony.");
                 this.initializeEmptyProject();
                 this.saveToLocalStorage();
             }
+            if (!this.data.config) {
+                this.data.config = { npcInstance: '', menuName: '', objectType: 'ClientNPC', exclusiveChoices: true };
+            }
+            if (!this.data.config.objectType) this.data.config.objectType = 'ClientNPC';
+            if (this.data.config.exclusiveChoices === undefined) this.data.config.exclusiveChoices = true;
+
         } else {
             this.initializeEmptyProject();
         }
         document.getElementById('npcInstance').value = this.data.config.npcInstance;
         document.getElementById('menuName').value = this.data.config.menuName;
+        document.getElementById('objectType').value = this.data.config.objectType;
+        document.getElementById('exclusiveChoices').checked = this.data.config.exclusiveChoices;
     }
 
     saveToLocalStorage() {
         this.data.config.npcInstance = document.getElementById('npcInstance').value;
         this.data.config.menuName = document.getElementById('menuName').value;
+        this.data.config.objectType = document.getElementById('objectType').value;
+        this.data.config.exclusiveChoices = document.getElementById('exclusiveChoices').checked;
         localStorage.setItem('dialogueCreatorData', JSON.stringify(this.data));
     }
 
@@ -357,7 +451,6 @@ class DialogueApp {
         const node = this.data.nodes[nodeId];
         if (!node) return;
 
-        // ZMIANA TUTAJ: Blokowanie usuwania i zmiany nazwy dla 'intro'
         const isIntroNode = nodeId === 'intro';
         document.getElementById('node-id').readOnly = isIntroNode;
         document.getElementById('delete-node-button').disabled = isIntroNode;
@@ -368,6 +461,11 @@ class DialogueApp {
         document.getElementById('node-id').value = nodeId;
         document.getElementById('node-label').value = node.label;
         document.getElementById('node-repeat').checked = node.repeat || false;
+        document.getElementById('node-autostart').checked = node.autoStart || false;
+        document.getElementById('node-dialog-exit').checked = node.shouldExit || false;
+        document.getElementById('node-type').value = node.type || 'dialog';
+        document.getElementById('node-startquest').value = node.startQuest || '';
+        document.getElementById('node-finishquest').value = node.finishQuest || '';
 
         this.renderSubItems('dialogue-lines', node.lines, this.getDialogueLineHTML);
         this.renderSubItems('choices', node.choices, this.getChoiceHTML);
@@ -394,7 +492,13 @@ class DialogueApp {
         this.data.nodes[newId] = {
             label: 'Nowa opcja dialogowa',
             lines: [{ owner: this.data.config.npcInstance || 'NPC', text: 'Witaj.' }],
-            choices: [], conditions: [], actions: [], repeat: false
+            choices: [], conditions: [], actions: [],
+            repeat: false,
+            autoStart: false,
+            shouldExit: false,
+            type: 'dialog',
+            startQuest: '',
+            finishQuest: ''
         };
         this.saveToLocalStorage();
         this.openEditor(newId);
@@ -454,9 +558,14 @@ class DialogueApp {
         const nodeData = {
             label: document.getElementById('node-label').value,
             repeat: document.getElementById('node-repeat').checked,
+            autoStart: document.getElementById('node-autostart').checked,
+            shouldExit: document.getElementById('node-dialog-exit').checked,
+            type: document.getElementById('node-type').value,
+            startQuest: document.getElementById('node-startquest').value.trim(),
+            finishQuest: document.getElementById('node-finishquest').value.trim(),
             lines: this.collectSubItems('dialogue-lines', ['owner', 'text']),
-            choices: this.collectSubItems('choices', ['next']),
-            conditions: this.collectSubItems('conditions', ['type', 'value1', 'value2', 'value3']),
+            choices: this.collectSubItems('choices', ['next', 'once']),
+            conditions: this.collectSubItems('conditions', ['type', 'value1', 'value2', 'value3', 'not', 'forceAllTrue', 'groupAll']),
             actions: this.collectSubItems('actions', ['type', 'value1', 'value2']),
         };
 
@@ -481,7 +590,6 @@ class DialogueApp {
     }
 
     deleteNode() {
-        // ZMIANA TUTAJ: Dodatkowe zabezpieczenie przed usunięciem 'intro'
         if (this.activeNodeId === 'intro') {
             alert('Nie można usunąć startowego węzła "intro"!');
             return;
@@ -492,7 +600,7 @@ class DialogueApp {
         Object.values(this.data.nodes).forEach(node => {
             if (node.choices) node.choices = node.choices.filter(c => c.next !== idToDelete);
         });
-        this.activeNodeId = 'intro'; // Wróć do intro po usunięciu
+        this.activeNodeId = 'intro';
         this.setDirty(false);
         this.saveToLocalStorage();
         this.openEditor('intro');
@@ -504,7 +612,13 @@ class DialogueApp {
             const itemData = {};
             fields.forEach(field => {
                 const input = itemEl.querySelector(`[data-field="${field}"]`);
-                if(input) itemData[field] = input.value;
+                if (input) {
+                    if (input.type === 'checkbox') {
+                        itemData[field] = input.checked;
+                    } else {
+                        itemData[field] = input.value;
+                    }
+                }
             });
             items.push(itemData);
         });
@@ -512,7 +626,7 @@ class DialogueApp {
     }
 
     addDialogueLine() { this.addSubItem('lines', { owner: this.data.config.npcInstance || 'NPC', text: '' }); }
-    addChoice() { this.addSubItem('choices', { next: Object.keys(this.data.nodes)[0] || '' }); }
+    addChoice() { this.addSubItem('choices', { next: Object.keys(this.data.nodes)[0] || '', once: false }); }
     addCondition() { this.addSubItem('conditions', { type: 'hasItem' }); }
     addAction() { this.addSubItem('actions', { type: 'giveGold' }); }
 
@@ -541,14 +655,50 @@ class DialogueApp {
 
     getChoiceHTML(item, index) {
         const options = Object.keys(this.data.nodes).map(id => `<option value="${id}" ${id === item.next ? 'selected' : ''}>${id}</option>`).join('');
-        return `<div class="sub-item" data-index="${index}"><select data-field="next">${options}</select><button class="danger" style="width:auto; padding: 5px 10px; margin-top:5px;" onclick="app.removeSubItem('choices', ${index})">Usuń</button></div>`;
+        const onceChecked = item.once ? 'checked' : '';
+        return `<div class="sub-item" data-index="${index}">
+            <select data-field="next">${options}</select>
+            <div class="choice-item-controls">
+                <div class="form-group-inline" style="margin: 0;">
+                    <input type="checkbox" data-field="once" ${onceChecked}>
+                    <label>Jednorazowy (once)</label>
+                </div>
+                <button class="danger" style="width:auto; padding: 5px 10px; margin: 0 0 0 auto;" onclick="app.removeSubItem('choices', ${index})">Usuń</button>
+            </div>
+        </div>`;
     }
 
     getConditionHTML(item, index) {
         const typeInfo = this.conditionTypes[item.type];
         const options = Object.keys(this.conditionTypes).map(t => `<option value="${t}" ${t === item.type ? 'selected' : ''}>${this.conditionTypes[t].label}</option>`).join('');
         const fieldsHTML = typeInfo.fields.map(field => `<input type="text" data-field="${field.name}" value="${item[field.name] || ''}" placeholder="${field.placeholder}" ${field.required ? 'data-required="true"' : ''}>`).join('');
-        return `<div class="sub-item" data-index="${index}"><select data-field="type" onchange="app.refreshEditorView()">${options}</select><div class="inline-fields">${fieldsHTML}</div><button class="danger" style="width:auto; padding: 5px 10px; margin-top:5px;" onclick="app.removeSubItem('conditions', ${index})">Usuń</button></div>`;
+
+        const notChecked = item.not ? 'checked' : '';
+        const forceAllTrueChecked = item.forceAllTrue ? 'checked' : '';
+        const groupAllValue = item.groupAll || '';
+
+        const propsHTML = `
+            <div style="display: flex; gap: 15px; align-items: center; margin-top: 10px; background: #353b48; padding: 8px; border-radius: 4px;">
+                <div style="flex: 1; display: flex; align-items: center;">
+                    <input type="checkbox" data-field="not" ${notChecked} style="width: auto; margin: 0 5px 0 0;">
+                    <label style="margin: 0; font-size: 12px;">Negacja (NOT)</label>
+                </div>
+                <div style="flex: 1; display: flex; align-items: center;">
+                    <input type="checkbox" data-field="forceAllTrue" ${forceAllTrueChecked} style="width: auto; margin: 0 5px 0 0;">
+                    <label style="margin: 0; font-size: 12px;">Wymuś Prawdę (OR)</label>
+                </div>
+                <div style="flex: 2;">
+                    <input type="text" data-field="groupAll" value="${groupAllValue}" placeholder="Nazwa grupy (AND)" style="margin: 0; padding: 5px;">
+                </div>
+            </div>
+        `;
+
+        return `<div class="sub-item" data-index="${index}">
+            <select data-field="type" onchange="app.refreshEditorView()">${options}</select>
+            ${propsHTML}
+            <div class="inline-fields" style="margin-top: 10px;">${fieldsHTML}</div>
+            <button class="danger" style="width:auto; padding: 5px 10px; margin-top:5px;" onclick="app.removeSubItem('conditions', ${index})">Usuń</button>
+        </div>`;
     }
 
     getActionHTML(item, index) {
@@ -577,7 +727,6 @@ class DialogueApp {
         reader.onload = (e) => {
             try {
                 const importedData = JSON.parse(e.target.result);
-                // ZMIANA TUTAJ: Walidacja importu - sprawdzanie czy istnieje węzeł 'intro'
                 if (importedData.nodes && importedData.nodes.intro && importedData.config) {
                     this.data = importedData;
                     this.activeNodeId = 'intro';
@@ -618,58 +767,93 @@ class DialogueApp {
             let properties = [];
 
             properties.push(`label = "${node.label.replace(/"/g, '\\"')}"`);
+            if (node.type && node.type !== 'dialog') { properties.push(`type = "${node.type}"`); }
             if (node.repeat) { properties.push(`repeat = true`); }
+            if (node.autoStart) { properties.push(`autoStart = true`); }
+            if (node.startQuest) { properties.push(`startQuest = "${node.startQuest.toUpperCase()}"`); }
+            if (node.finishQuest) { properties.push(`finishQuest = "${node.finishQuest.toUpperCase()}"`); }
 
-            if (node.lines && node.lines.length > 0) {
-                let linesStr = node.lines.map(line => `               { owner = "${line.owner.replace(/"/g, '\\"')}", text = "${line.text.replace(/"/g, '\\"')}" }`).join(',\n');
-                properties.push(`dialog = {\n           lines = [\n${linesStr}\n           ]\n        }`);
+
+            if ((node.lines && node.lines.length > 0) || node.shouldExit) {
+                let dialogParts = [];
+                if (node.shouldExit) {
+                    dialogParts.push(`\n           properties = {\n                shouldExit = true\n           }`);
+                }
+                if (node.lines && node.lines.length > 0) {
+                    let linesStr = node.lines.map(line => `               { owner = "${line.owner.replace(/"/g, '\\"')}", text = "${line.text.replace(/"/g, '\\"')}" }`).join(',\n');
+                    dialogParts.push(`\n           lines = [\n${linesStr}\n           ]`);
+                }
+                properties.push(`dialog = {${dialogParts.join(',')}
+        }`);
             }
+
             if (node.conditions && node.conditions.length > 0) {
                 let condsStr = node.conditions.map(cond => {
-                    const indent = '            ';
+                    const indent = '               ';
+                    let condProps = [`type = "${cond.type}"`];
+
+                    let valueStr = null;
                     switch(cond.type) {
                         case 'hasGold':
-                            return `${indent}{ type = "hasGold", value = ${cond.value1} }`;
-                        case 'hasItem':
-                            return `${indent}{ type = "hasItem", value = { instance = "${cond.value1}", amount = ${cond.value2} } }`;
+                            valueStr = `value = ${cond.value1}`;
+                            break;
                         case 'isDialogFinished':
-                            return `${indent}{ type = "isDialogFinished", value = "${cond.value1}" }`;
                         case 'questCompleted':
-                            return `${indent}{ type = "questCompleted", value = "${cond.value1}" }`;
                         case 'isQuestActive':
-                            return `${indent}{ type = "isQuestActive", value = "${cond.value1}" }`;
                         case 'questReady':
-                            return `${indent}{ type = "questReady", value = "${cond.value1}" }`;
                         case 'canTakeQuest':
-                            return `${indent}{ type = "canTakeQuest", value = "${cond.value1}" }`;
+                        case 'hasEquippedQuestItem':
+                            valueStr = `value = "${cond.value1}"`;
+                            break;
+                        case 'hasItem':
+                            valueStr = `value = { instance = "${cond.value1}", amount = ${cond.value2} }`;
+                            break;
                         case 'checkTrainingRequiremenets':
-                            return `${indent}{ type = "checkTrainingRequiremenets", value = { name = "${cond.value1}", multiplier = ${cond.value2}, limit = ${cond.value3} } }`;
+                            valueStr = `value = { name = "${cond.value1}", multiplier = ${cond.value2}, limit = ${cond.value3} }`;
+                            break;
                         case 'gameTimeBetween':
-                            return `${indent}{ type = "gameTimeBetween", value = { start = ${cond.value1}, end = ${cond.value2} } }`;
                         case 'realTimeBetween':
-                            return `${indent}{ type = "realTimeBetween", value = { start = ${cond.value1}, end = ${cond.value2} } }`;
-                        default:
-                            return null;
+                            valueStr = `value = { start = ${cond.value1}, end = ${cond.value2} }`;
+                            break;
+                        case 'checkQuestStatus':
+                            valueStr = `value = { instance = "${cond.value1}", status = ${cond.value2} }`;
+                            break;
+                        case 'isMale':
+                        case 'isFemale':
+                            break;
                     }
+                    if (valueStr) condProps.push(valueStr);
+
+                    if (cond.not) condProps.push('not = true');
+                    if (cond.forceAllTrue) condProps.push('forceAllTrue = true');
+                    if (cond.groupAll && cond.groupAll.trim() !== '') condProps.push(`groupAll = "${cond.groupAll}"`);
+
+                    return `${indent}{ ${condProps.join(", ")} }`;
                 }).filter(Boolean).join(',\n');
                 if(condsStr) properties.push(`conditions = [\n${condsStr}\n        ]`);
             }
+
             if (node.actions && node.actions.length > 0) {
                  let actionsStr = node.actions.map(act => {
-                      switch(act.type) {
-                           case 'giveGold': return `            player.giveGold(${act.value1});`;
-                           case 'removeGold': return `            player.removeGold(${act.value1});`;
-                           case 'giveItem': return `            player.giveItem("${act.value1}", ${act.value2 || 1});`;
-                           case 'addSkill': return `            player.addSkill("${act.value1}", ${act.value2 || 1});`;
-                           case 'addJournalEntry': return `            player.addJournalEntry("${act.value1.replace(/"/g, '\\"')}", "${act.value2.replace(/"/g, '\\"')}");`;
-                           case 'print': return `            print("${act.value1.replace(/"/g, '\\"')}");`;
-                           default: return null;
-                      }
+                       switch(act.type) {
+                            case 'giveGold': return `           player.giveGold(${act.value1});`;
+                            case 'removeGold': return `           player.removeGold(${act.value1});`;
+                            case 'giveItem': return `           Game.Items.givePlayerItem(player.id, "${act.value1}", ${act.value2 || 1});`;
+                            case 'addSkill': return `           player.addSkill("${act.value1}", ${act.value2 || 1});`;
+                            case 'addJournalEntry': return `           player.addJournalEntry("${act.value1.replace(/"/g, '\\"')}", "${act.value2.replace(/"/g, '\\"')}");`;
+                            case 'print': return `           print("${act.value1.replace(/"/g, '\\"')}");`;
+                            default: return null;
+                       }
                  }).filter(Boolean).join('\n');
                  if(actionsStr) properties.push(`callback = function(player) {\n${actionsStr}\n        }`);
             }
             if (node.choices && node.choices.length > 0) {
-                let choicesStr = node.choices.map(choice => choice.next ? `            { next = "${choice.next}" }` : null).filter(Boolean).join(',\n');
+                let choicesStr = node.choices.map(choice => {
+                    if (!choice.next) return null;
+                    let choiceProps = [`next = "${choice.next}"`];
+                    if (choice.once) choiceProps.push("once = true");
+                    return `               { ${choiceProps.join(", ")} }`;
+                }).filter(Boolean).join(',\n');
                 if(choicesStr) properties.push(`choices = [\n${choicesStr}\n        ]`);
             }
 
@@ -681,12 +865,19 @@ class DialogueApp {
             squirrelString += `    },\n\n`;
         }
         squirrelString += '};\n\n';
+
         const menuName = this.data.config.menuName || 'default_menu';
         const npcInstance = this.data.config.npcInstance || 'NPC';
+        const objectType = this.data.config.objectType || 'ClientNPC';
+        const exclusiveChoices = this.data.config.exclusiveChoices ? 'true' : 'false';
+
         squirrelString += `// ${'-'.repeat(44)}\n// Rejestracja dialogu\n// ${'-'.repeat(44)}\n`;
-        squirrelString += `DynamicMenuSystem.registerMenuOption("${menuName}", {\n    dialogStructure = advancedDialog\n});\n\n`;
+        squirrelString += `DynamicMenuSystem.registerMenuOption("${menuName}", {\n`;
+        squirrelString += `    dialogStructure = advancedDialog,\n`;
+        squirrelString += `    exclusiveChoices = ${exclusiveChoices}\n});\n\n`;
+
         squirrelString += `// ${'-'.repeat(44)}\n// Przypięcie menu do NPC-a\n// ${'-'.repeat(44)}\n`;
-        squirrelString += `DynamicMenuSystem.registerDynamicObjectMenu("ClientNPC", "${npcInstance}", ["${menuName}"]);`;
+        squirrelString += `DynamicMenuSystem.registerDynamicObjectMenu("${objectType}", "${npcInstance}", ["${menuName}"]);`;
 
         const encodedBytes = this.encodeWindows1250(squirrelString);
         const blob = new Blob([encodedBytes], { type: 'text/plain;charset=windows-1250' });

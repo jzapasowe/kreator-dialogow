@@ -1,0 +1,177 @@
+//------------------------------------------------------------
+// Rozszerzony przykład dialogu z Celiną (Squirrel)
+//------------------------------------------------------------
+local advancedDialog = {
+
+    //========================================================
+    // PUNKT STARTOWY – INTRO
+    //========================================================
+    intro = {
+        label = "Rozpocznij rozmowę z Celiną",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Cześć! Co chcesz zrobić dzisiaj?" }
+            ]
+        },
+        choices = [
+            { next = "help" },
+            { next = "bye" },
+            { next = "repeatable" },
+            { next = "goldOption" },
+            { next = "itemOption" }
+        ]
+    },
+    auto_start_test = {
+        autoStart = true,
+        label = "Praca - Sprzątanie po zwierzętach",
+        dialog = {
+            properties = {
+                shouldExit = true
+            }
+            lines = [
+			    { owner = "Player", text = "Chętnie pomogę przy zwierzętach." },
+                { owner = "NPC", text = "Dobrze, sprawdź szopę lub wybieg. Zabrudzenia są wszędzie, a czasem nawet jakiś pająk się trafi — trzeba będzie się go pozbyć, jeśli się pojawi." }
+            ]
+        },
+    },
+
+    //========================================================
+    // OPCJA "Pomoc"
+    //========================================================
+    help = {
+        label = "Poproszę o pomoc.",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Świetnie! Pomogę Ci." }
+            ]
+        },
+        callback = function(player) {
+            player.giveGold(10);
+        }
+    },
+
+    //========================================================
+    // OPCJA "Do widzenia"
+    //========================================================
+    bye = {
+        label = "Do widzenia.",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Do zobaczenia!" }
+            ]
+        },
+        callback = function(player) {
+            print("BYE FINISHED");
+        }
+    },
+
+    //========================================================
+    // OPCJA WIELOKROTNA
+    //========================================================
+    repeatable = {
+        label = "Powiedz coś jeszcze",
+        repeat = true,
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Hmm, co jeszcze chcesz wiedzieć?" }
+            ]
+        },
+        callback = function(player) {
+            print("REPEATABLE FINISHED");
+        }
+    },
+
+    //========================================================
+    // OPCJA ITEM
+    //========================================================
+    itemOption = {
+        label = "Pokaż mój specjalny przedmiot",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Wow, masz ten rzadki przedmiot!" }
+            ]
+        },
+        conditions = [
+            { type = "hasItem", value = { instance = "ITMW_GS_1H_ADMIN_01", amount = 1 } }
+        ],
+        callback = function(player) {
+            print("ITEM OPTION SELECTED");
+        }
+    },
+
+    //========================================================
+    // OPCJA GOLD Z NOWYMI CHOICES
+    //========================================================
+    goldOption = {
+        label = "Zapłać 100 złota",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Dziękuję za zapłatę!" },
+                { owner = "Celina", text = "W zamian mogę Ci zaoferować kilka rzeczy." }
+            ]
+        },
+        conditions = [
+            { type = "hasGold", value = 100 }
+        ],
+        callback = function(player) {
+            player.removeGold(100);
+        },
+        choices = [
+            { next = "infoSecret" },
+            { next = "receiveItem" },
+            { next = "byeAfterGold" }
+        ]
+    },
+
+    //========================================================
+    // NOWE OPCJE PO ZAPŁACIE
+    //========================================================
+    infoSecret = {
+        label = "Powiedz mi sekret",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Dobrze, zdradzę Ci coś... w starych ruinach na północy ukryty jest skarb." }
+            ]
+        },
+        callback = function(player) {
+            print("SECRET INFO GIVEN");
+            player.addJournalEntry("Skarb Celiny", "Celina zdradziła mi sekret o ukrytym skarbie na północy.");
+        }
+    },
+
+    receiveItem = {
+        label = "Poproszę coś w zamian",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Masz! To amulet szczęścia, niech Ci dobrze służy." }
+            ]
+        },
+        callback = function(player) {
+            Game.Items.givePlayerItem(player.id, "ITAC_GS_ACSR1_01", 1)
+        }
+    },
+
+    byeAfterGold = {
+        label = "Dziękuję, to wszystko.",
+        dialog = {
+            lines = [
+                { owner = "Celina", text = "Miło było z Tobą handlować!" }
+            ]
+        },
+        callback = function(player) {
+            print("GOODBYE AFTER GOLD OPTION");
+        }
+    }
+};
+
+//------------------------------------------------------------
+// Rejestracja dialogu
+//------------------------------------------------------------
+DynamicMenuSystem.registerMenuOption("talk_with_celina_adv", {
+    dialogStructure = advancedDialog
+});
+
+//------------------------------------------------------------
+// Przypięcie menu do NPC-a
+//------------------------------------------------------------
+DynamicMenuSystem.registerDynamicObjectMenu("ClientNPC", "Celina", ["talk_with_celina_adv"]);
